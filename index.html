@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>M4A1 3D Viewer</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #1a1a1a; }
+        #loading {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            color: white; font-family: sans-serif; font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">M4A1 モデルを読み込み中...</div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+        // 1. 基本設定（シーン、カメラ、レンダラー）
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1a1a1a); // タルコフ風の暗い背景
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(0, 0.5, 2); // モデルのサイズに合わせて調整してください
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.toneMapping = THREE.ACESFilmicToneMapping; // リアルな金属光沢のための色調補正
+        renderer.toneMappingExposure = 1.0;
+        document.body.appendChild(renderer.domElement);
+
+        // 2. 環境光の設定（PBRマテリアルを綺麗に反射させる）
+        const pmremGenerator = new THREE.PMREMGenerator(renderer);
+        scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
+
+        // 3. マウス操作の追加
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+
+        // 4. GLBモデルの読み込み
+        const loader = new GLTFLoader();
+        
+        // GitHub PagesのURL対策として、相対パス「./models/...」にしています
+        loader.load('./models/m4a1.glb', function (gltf) {
+            const model = gltf.scene;
+            scene.add(model);
+            
+            // 読み込みが完了したらインジケーターを消す
+            document.getElementById('loading').style.display = 'none';
+
+        }, function (xhr) {
+            // 読み込み進捗の計算（オプション）
+            if (xhr.total > 0) {
+                const percent = Math.round((xhr.loaded / xhr.total) * 100);
+                document.getElementById('loading').innerText = `モデルを読み込み中... ${percent}%`;
+            }
+        }, function (error) {
+            console.error('モデルの読み込みに失敗しました:', error);
+            document.getElementById('loading').innerText = 'モデルの読み込みエラー（ファイル名や配置を確認してください）';
+        });
+
+        // 5. アニメーションループ
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // 画面リサイズへの対応
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
